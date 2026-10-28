@@ -163,6 +163,10 @@ html, body { margin: 0; background: var(--color-bg); }
 .wb-chip.wb-sel { background: color-mix(in srgb, var(--c) 32%, transparent); border-color: var(--c); }
 .wb-chip.wb-dim { opacity: .28; }
 .wb-chip.wb-hit { box-shadow: 0 0 0 2px var(--c); }
+.wb-chip.wb-move { box-shadow: 0 0 0 2px var(--color-warn); }
+.wb-chip .wb-tag.wb-tag-move { color: var(--color-warn); font-weight: var(--cds-font-weight-medium); }
+.wb-badge.wb-badge-move { border-color: var(--color-warn); color: var(--color-warn); }
+.wb-lead .wb-move-line { display: block; color: var(--color-warn); margin-bottom: 2px; }
 .wb-chip.wb-draft { background: transparent; border: 1.5px dashed var(--c); opacity: .6; }
 .wb-chip.wb-draft:hover { opacity: .85; }
 .wb-chip .wb-tag { font-size: 10px; color: var(--color-fg-muted); margin-left: auto; }
@@ -257,6 +261,7 @@ html, body { margin: 0; background: var(--color-bg); }
     <span><i class="wb-dot wb-st-plan"></i>Запланирована / отгрузка разрешена</span>
     <span><i class="wb-dot wb-st-go"></i>Идёт приёмка / на воротах</span>
     <span><i class="wb-dot wb-st-ok"></i>Принята</span>
+    <span data-edit-only hidden><i class="wb-sw-draft" style="border: 2px solid var(--color-warn)"></i>Оранжевая рамка — подходит срок бесплатного переноса (видно только вам)</span>
     <span><i class="wb-sw-draft"></i>Пунктир и прозрачность — состав поставки ещё уточняется</span>
   </p>
 </div>
@@ -301,6 +306,10 @@ const searchHits = () => {
   return hits;
 };
 
+const MOVE_FREE_DAYS = 3, MOVE_WARN_DAYS = 4;
+const daysTo = (d) => Math.round((Date.parse(d) - Date.parse(todayStr())) / 864e5);
+const moveDeadline = (d) => new Date(Date.parse(d) - MOVE_FREE_DAYS * 864e5).toISOString().slice(0, 10);
+const needsMove = (s) => !!(window.WB && window.WB.canEdit) && s.date && [2, 3].includes(Number(s.status_id)) && daysTo(s.date) >= MOVE_FREE_DAYS && daysTo(s.date) <= MOVE_WARN_DAYS;
 const isDraft = (sid) => !!(window.WB && window.WB.drafts && window.WB.drafts.has(sid));
 const chip = (s, opts = {}) => {
   const b = mk('button', 'wb-chip');
@@ -316,6 +325,7 @@ const chip = (s, opts = {}) => {
   b.append(l1, l2);
   if (P().sid === s.sid) b.classList.add('wb-sel');
   if (opts.hits) b.classList.add(opts.hits.has(s.sid) ? 'wb-hit' : 'wb-dim');
+  if (needsMove(s)) { b.classList.add('wb-move'); l1.append(mk('span', 'wb-tag wb-tag-move', 'перенос до ' + dShort(moveDeadline(s.date)))); }
   if (isDraft(s.sid)) { b.classList.add('wb-draft'); l1.append(mk('span', 'wb-tag', 'уточн.')); b.setAttribute('aria-label', b.getAttribute('aria-label') + ', состав уточняется'); }
   return b;
 };
@@ -370,6 +380,7 @@ for (const q of root.querySelectorAll('.wb-q')) {
 }
 
 dash.onData(() => {
+  for (const x of root.querySelectorAll('[data-edit-only]')) x.hidden = !(window.WB && window.WB.canEdit);
   const cab = P().cab || 'all';
   for (const b of root.querySelectorAll('.wb-cab')) b.setAttribute('aria-pressed', String(b.dataset.cab === cab));
   for (const s of root.querySelectorAll('[data-sw]')) s.style.background = (CAB[s.dataset.sw] || {}).color || '';
@@ -407,6 +418,8 @@ dash.draw('lead', (el) => {
     el.append('По запросу «' + P().q + '» найдено поставок: ', mk('b', '', fmt(found.length)), found.length ? ' — они подсвечены в календаре.' : '. Попробуйте другой артикул.');
     return;
   }
+  const mv = rows.filter(needsMove);
+  if (mv.length) el.append(mk('span', 'wb-move-line', 'Решить по переносу: ' + mv.length + ' ' + (mv.length === 1 ? 'поставка' : mv.length < 5 ? 'поставки' : 'поставок') + ' — бесплатно перенести можно до ' + dLong(moveDeadline(mv.map((x) => x.date).sort()[0])) + '.'));
   const ahead = rows.filter((s) => s.date && s.date >= today && Number(s.status_id) !== 5).sort((a, b) => a.date.localeCompare(b.date));
   const inWork = rows.filter((s) => [4, 6].includes(Number(s.status_id)));
   if (ahead.length) {
@@ -516,6 +529,7 @@ dash.draw('detail', (el) => {
   const sb = mk('span', 'wb-badge'); sb.append(mk('i', 'wb-dot ' + stCls(s.status_id)), s.status);
   badges.append(cb, sb);
   if (isDraft(s.sid)) badges.append(mk('span', 'wb-badge', 'Состав уточняется'));
+  if (needsMove(s)) badges.append(mk('span', 'wb-badge wb-badge-move', 'Бесплатный перенос — до ' + dLong(moveDeadline(s.date)) + ' включительно'));
   if (s.box_type) badges.append(mk('span', 'wb-badge', s.box_type));
   if (num(s.discrepancies) > 0) badges.append(mk('span', 'wb-badge wb-bad', 'Расхождения: ' + fmt(s.discrepancies)));
 
