@@ -60,6 +60,64 @@ html, body { margin: 0; background: var(--color-bg); }
     setLink: () => {}, refresh: () => {},
   };
   window.addEventListener('resize', redraw);
+
+  // Отметки «состав уточняется»: файл data/drafts.json в репозитории.
+  // Смотреть может любой; менять — только тот, кто открыл страницу с ?edit и ввёл токен GitHub.
+  const REPO = 'zhalkovichad-arch/wb-postavki', PATH = 'data/drafts.json';
+  const API = 'https://api.github.com/repos/' + REPO + '/contents/' + PATH;
+  const KEY = 'wb_gh_token';
+  let token = null;
+  try { token = localStorage.getItem(KEY); } catch (e) {}
+  const wantEdit = /(^|[?&])edit\b/.test(location.search.slice(1));
+  if (wantEdit && !token) {
+    const t = window.prompt('Режим правки отметок. Вставьте токен GitHub (сохранится только в этом браузере):');
+    if (t && t.trim()) { token = t.trim(); try { localStorage.setItem(KEY, token); } catch (e) {} }
+  }
+  const b64 = (str) => btoa(unescape(encodeURIComponent(str)));
+  const unb64 = (str) => decodeURIComponent(escape(atob(str.replace(/\n/g, ''))));
+  const hdr = () => ({ Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' });
+  let sha = null;
+  const WB = window.WB = { drafts: new Set(), canEdit: !!token, toggle: null };
+  const setDrafts = (list) => { WB.drafts = new Set(list || []); redraw(); };
+  const loadPublic = () => fetch(PATH + '?t=' + Date.now(), { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : { sids: [] })).then((j) => setDrafts(j.sids)).catch(() => {});
+  const loadApi = () => fetch(API + '?t=' + Date.now(), { headers: hdr(), cache: 'no-store' })
+    .then((r) => { if (r.status === 401) throw new Error('auth'); return r.ok ? r.json() : null; })
+    .then((j) => { if (j) { sha = j.sha; setDrafts(JSON.parse(unb64(j.content)).sids); } else { sha = null; setDrafts([]); } });
+  if (token) loadApi().catch((e) => {
+    if (e.message === 'auth') { alert('Токен GitHub не подошёл — режим правки выключен. Откройте страницу с ?edit, чтобы ввести новый.'); try { localStorage.removeItem(KEY); } catch (x) {} WB.canEdit = false; }
+    loadPublic();
+  });
+  else loadPublic();
+  let busy = false;
+  WB.toggle = async (sid) => {
+    if (!token || busy) return;
+    busy = true;
+    const before = new Set(WB.drafts);
+    if (WB.drafts.has(sid)) WB.drafts.delete(sid); else WB.drafts.add(sid);
+    redraw();
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const body = { message: (WB.drafts.has(sid) ? 'Состав уточняется: ' : 'Состав подтверждён: ') + sid,
+          content: b64(JSON.stringify({ sids: [...WB.drafts].sort() }, null, 1) + '\n') };
+        if (sha) body.sha = sha;
+        const r = await fetch(API, { method: 'PUT', headers: { ...hdr(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (r.ok) { sha = (await r.json()).content.sha; busy = false; return; }
+        if (r.status === 409 || r.status === 422) {
+          const want = new Set(WB.drafts);
+          await loadApi();
+          if (want.has(sid)) WB.drafts.add(sid); else WB.drafts.delete(sid);
+          continue;
+        }
+        throw new Error('HTTP ' + r.status);
+      }
+      throw new Error('конфликт версий');
+    } catch (e) {
+      WB.drafts = before; redraw();
+      alert('Не удалось сохранить отметку (' + e.message + '). Попробуйте ещё раз.');
+    }
+    busy = false;
+  };
 })();
 </script>
 
@@ -105,6 +163,12 @@ html, body { margin: 0; background: var(--color-bg); }
 .wb-chip.wb-sel { background: color-mix(in srgb, var(--c) 32%, transparent); border-color: var(--c); }
 .wb-chip.wb-dim { opacity: .28; }
 .wb-chip.wb-hit { box-shadow: 0 0 0 2px var(--c); }
+.wb-chip.wb-draft { background: transparent; border: 1.5px dashed var(--c); opacity: .6; }
+.wb-chip.wb-draft:hover { opacity: .85; }
+.wb-chip .wb-tag { font-size: 10px; color: var(--color-fg-muted); margin-left: auto; }
+.wb-sw-draft { width: .9rem; height: .6rem; border: 1.5px dashed var(--color-fg-muted); border-radius: 3px; display: inline-block; }
+.wb-draft-btn { font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer; padding: 4px 10px; border-radius: var(--cds-radius); border: 1.5px dashed var(--color-fg-muted); background: transparent; color: var(--color-fg); margin-bottom: var(--cds-gap-md); }
+.wb-draft-btn.wb-on { border-style: solid; background: var(--color-panel); }
 .wb-chip .wb-l1 { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wb-chip .wb-l1 b { font-weight: var(--cds-font-weight-medium); }
 .wb-chip .wb-l2 { color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -193,6 +257,7 @@ html, body { margin: 0; background: var(--color-bg); }
     <span><i class="wb-dot wb-st-plan"></i>Запланирована / отгрузка разрешена</span>
     <span><i class="wb-dot wb-st-go"></i>Идёт приёмка / на воротах</span>
     <span><i class="wb-dot wb-st-ok"></i>Принята</span>
+    <span><i class="wb-sw-draft"></i>Пунктир и прозрачность — состав поставки ещё уточняется</span>
   </p>
 </div>
 
@@ -236,6 +301,7 @@ const searchHits = () => {
   return hits;
 };
 
+const isDraft = (sid) => !!(window.WB && window.WB.drafts && window.WB.drafts.has(sid));
 const chip = (s, opts = {}) => {
   const b = mk('button', 'wb-chip');
   const c = CAB[s.cab] || { name: s.cab, color: 'var(--color-fg-muted)' };
@@ -250,6 +316,7 @@ const chip = (s, opts = {}) => {
   b.append(l1, l2);
   if (P().sid === s.sid) b.classList.add('wb-sel');
   if (opts.hits) b.classList.add(opts.hits.has(s.sid) ? 'wb-hit' : 'wb-dim');
+  if (isDraft(s.sid)) { b.classList.add('wb-draft'); l1.append(mk('span', 'wb-tag', 'уточн.')); b.setAttribute('aria-label', b.getAttribute('aria-label') + ', состав уточняется'); }
   return b;
 };
 
@@ -283,6 +350,8 @@ if (!P().month) setDefaults();
 const root = document.querySelector('.wb');
 root.addEventListener('click', (e) => {
   const sidEl = e.target.closest('[data-sid]');
+  const dr = e.target.closest('[data-toggle-draft]');
+  if (dr && window.WB && window.WB.toggle) { window.WB.toggle(dr.dataset.toggleDraft); return; }
   if (sidEl) { dash.setParams({ sid: sidEl.dataset.sid }); return; }
   const dayEl = e.target.closest('[data-day]');
   if (dayEl) { dash.setParams({ day: dayEl.dataset.day, sid: null }); return; }
@@ -446,6 +515,7 @@ dash.draw('detail', (el) => {
   const cb = mk('span', 'wb-badge'); const sw = mk('i', 'wb-sw'); sw.style.background = c.color; cb.append(sw, c.name);
   const sb = mk('span', 'wb-badge'); sb.append(mk('i', 'wb-dot ' + stCls(s.status_id)), s.status);
   badges.append(cb, sb);
+  if (isDraft(s.sid)) badges.append(mk('span', 'wb-badge', 'Состав уточняется'));
   if (s.box_type) badges.append(mk('span', 'wb-badge', s.box_type));
   if (num(s.discrepancies) > 0) badges.append(mk('span', 'wb-badge wb-bad', 'Расхождения: ' + fmt(s.discrepancies)));
 
@@ -465,7 +535,13 @@ dash.draw('detail', (el) => {
   t('Штук', fmt(s.units));
   t('Принято', num(s.accepted) === null || ![4, 5, 6].includes(Number(s.status_id)) ? '—' : fmt(s.accepted));
 
-  el.append(head, badges, meta, tot);
+  el.append(head, badges);
+  if (window.WB && window.WB.canEdit && Number(s.status_id) !== 5) {
+    const t = mk('button', 'wb-draft-btn' + (isDraft(s.sid) ? ' wb-on' : ''), isDraft(s.sid) ? 'Состав уточняется — снять отметку' : 'Отметить: состав ещё уточняется');
+    t.dataset.toggleDraft = s.sid;
+    el.append(t);
+  }
+  el.append(meta, tot);
 
   const it = dash.data('items');
   if (it.status !== 'ok') { const w = mk('div'); if (it.status === 'error') fail(w); else w.textContent = '—'; el.append(w); return; }

@@ -50,6 +50,64 @@ SHIM = r"""
     setLink: () => {}, refresh: () => {},
   };
   window.addEventListener('resize', redraw);
+
+  // Отметки «состав уточняется»: файл data/drafts.json в репозитории.
+  // Смотреть может любой; менять — только тот, кто открыл страницу с ?edit и ввёл токен GitHub.
+  const REPO = 'zhalkovichad-arch/wb-postavki', PATH = 'data/drafts.json';
+  const API = 'https://api.github.com/repos/' + REPO + '/contents/' + PATH;
+  const KEY = 'wb_gh_token';
+  let token = null;
+  try { token = localStorage.getItem(KEY); } catch (e) {}
+  const wantEdit = /(^|[?&])edit\b/.test(location.search.slice(1));
+  if (wantEdit && !token) {
+    const t = window.prompt('Режим правки отметок. Вставьте токен GitHub (сохранится только в этом браузере):');
+    if (t && t.trim()) { token = t.trim(); try { localStorage.setItem(KEY, token); } catch (e) {} }
+  }
+  const b64 = (str) => btoa(unescape(encodeURIComponent(str)));
+  const unb64 = (str) => decodeURIComponent(escape(atob(str.replace(/\n/g, ''))));
+  const hdr = () => ({ Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' });
+  let sha = null;
+  const WB = window.WB = { drafts: new Set(), canEdit: !!token, toggle: null };
+  const setDrafts = (list) => { WB.drafts = new Set(list || []); redraw(); };
+  const loadPublic = () => fetch(PATH + '?t=' + Date.now(), { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : { sids: [] })).then((j) => setDrafts(j.sids)).catch(() => {});
+  const loadApi = () => fetch(API + '?t=' + Date.now(), { headers: hdr(), cache: 'no-store' })
+    .then((r) => { if (r.status === 401) throw new Error('auth'); return r.ok ? r.json() : null; })
+    .then((j) => { if (j) { sha = j.sha; setDrafts(JSON.parse(unb64(j.content)).sids); } else { sha = null; setDrafts([]); } });
+  if (token) loadApi().catch((e) => {
+    if (e.message === 'auth') { alert('Токен GitHub не подошёл — режим правки выключен. Откройте страницу с ?edit, чтобы ввести новый.'); try { localStorage.removeItem(KEY); } catch (x) {} WB.canEdit = false; }
+    loadPublic();
+  });
+  else loadPublic();
+  let busy = false;
+  WB.toggle = async (sid) => {
+    if (!token || busy) return;
+    busy = true;
+    const before = new Set(WB.drafts);
+    if (WB.drafts.has(sid)) WB.drafts.delete(sid); else WB.drafts.add(sid);
+    redraw();
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const body = { message: (WB.drafts.has(sid) ? 'Состав уточняется: ' : 'Состав подтверждён: ') + sid,
+          content: b64(JSON.stringify({ sids: [...WB.drafts].sort() }, null, 1) + '\n') };
+        if (sha) body.sha = sha;
+        const r = await fetch(API, { method: 'PUT', headers: { ...hdr(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (r.ok) { sha = (await r.json()).content.sha; busy = false; return; }
+        if (r.status === 409 || r.status === 422) {
+          const want = new Set(WB.drafts);
+          await loadApi();
+          if (want.has(sid)) WB.drafts.add(sid); else WB.drafts.delete(sid);
+          continue;
+        }
+        throw new Error('HTTP ' + r.status);
+      }
+      throw new Error('конфликт версий');
+    } catch (e) {
+      WB.drafts = before; redraw();
+      alert('Не удалось сохранить отметку (' + e.message + '). Попробуйте ещё раз.');
+    }
+    busy = false;
+  };
 })();
 </script>
 """
