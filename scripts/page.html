@@ -1,0 +1,439 @@
+<meta name="dash-one-writer">
+<style>
+#dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+.wb { font-family: var(--font-anthropic-sans); color: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+.wb-head { display: flex; flex-direction: column; gap: var(--cds-gap-xs); }
+.wb-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+.wb-lead { margin: 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); max-width: 60rem; }
+.wb-lead b, .wb b { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); }
+.wb-bar { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-md); align-items: center; }
+.wb-seg { display: inline-flex; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; }
+.wb-seg button, .wb-month button, .wb-link { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background: transparent; border: 0; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; display: inline-flex; align-items: center; gap: var(--cds-gap-xs); }
+.wb-seg button + button { border-left: 1px solid var(--color-border-line); }
+.wb-seg button[aria-pressed="true"] { background: var(--color-panel); font-weight: var(--cds-font-weight-medium); }
+.wb-sw { width: .625rem; height: .625rem; border-radius: 2px; display: inline-block; }
+.wb-month { display: inline-flex; align-items: center; gap: var(--cds-gap-xs); }
+.wb-month .wb-nav { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); min-width: 2rem; justify-content: center; }
+.wb-month .wb-today { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+.wb-mlabel { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); min-width: 9.5rem; text-align: center; }
+.wb-q { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); min-width: 14rem; flex: 0 1 18rem; margin-left: auto; }
+.wb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: var(--cds-gap-md); }
+.wb-kpi { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); }
+.wb-kpi span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.wb-kpi b.wb-num { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; }
+.wb-grid { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(18rem, 1fr); gap: var(--cds-gap-md); align-items: start; }
+@media (max-width: 980px) { .wb-grid { grid-template-columns: minmax(0, 1fr); } }
+.wb-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.wb-card h2 { margin: 0 0 var(--cds-gap-xs); font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
+.wb-note { margin: 0 0 var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.wb-details { position: sticky; top: var(--cds-gap-md); }
+.wb-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wb-dh { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: 0 var(--cds-pad-xs) var(--cds-pad-xs); }
+.wb-day { min-height: 6.5rem; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; background: var(--color-bg); }
+.wb-day.wb-off { background: transparent; border-style: dashed; opacity: .55; }
+.wb-day.wb-now { border-color: var(--cds-chart-reference); box-shadow: inset 0 0 0 1px var(--cds-chart-reference); }
+.wb-day.wb-picked { box-shadow: inset 0 0 0 2px var(--color-fg-muted); }
+.wb-dn { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.wb-dn i { font-style: normal; }
+.wb-chip { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; font-size: var(--cds-font-size-caption); line-height: 1.25; padding: 3px 5px; border-radius: 4px; background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.wb-chip:hover { background: color-mix(in srgb, var(--c) 24%, transparent); }
+.wb-chip:focus-visible { outline: 2px solid var(--c); }
+.wb-chip.wb-sel { background: color-mix(in srgb, var(--c) 32%, transparent); border-color: var(--c); }
+.wb-chip.wb-dim { opacity: .28; }
+.wb-chip.wb-hit { box-shadow: 0 0 0 2px var(--c); }
+.wb-chip .wb-l1 { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wb-chip .wb-l1 b { font-weight: var(--cds-font-weight-medium); }
+.wb-chip .wb-l2 { color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-dot { width: .45rem; height: .45rem; border-radius: 50%; flex: none; display: inline-block; }
+.wb-more { all: unset; cursor: pointer; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: 0 5px; }
+.wb-more:hover { color: var(--color-fg); text-decoration: underline; }
+.wb-ag { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+.wb-ag-day { display: flex; flex-direction: column; gap: 4px; }
+.wb-ag-h { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.wb-ag-h.wb-now { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+.wb-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-md) 0; }
+.wb-dh2 { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--cds-gap-sm); }
+.wb-x { all: unset; cursor: pointer; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 2px 6px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+.wb-x:hover { color: var(--color-fg); }
+.wb-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--cds-gap-xs) 0 var(--cds-gap-md); }
+.wb-badge { font-size: var(--cds-font-size-caption); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--color-border-line); display: inline-flex; align-items: center; gap: 5px; }
+.wb-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--cds-gap-md); font-size: var(--cds-font-size-caption); margin-bottom: var(--cds-gap-md); }
+.wb-meta dt { color: var(--color-fg-muted); }
+.wb-meta dd { margin: 0; font-variant-numeric: tabular-nums; }
+.wb-tot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); margin-bottom: var(--cds-gap-md); }
+.wb-tot div { background: var(--color-bg); border-radius: var(--cds-radius); padding: var(--cds-pad-sm); display: flex; flex-direction: column; }
+.wb-tot span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.wb-tot b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
+.wb-tbl-wrap { max-height: 28rem; overflow: auto; border-top: 1px solid var(--color-border-line); }
+.wb-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); }
+.wb-tbl th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: 6px 4px; border-bottom: 1px solid var(--color-border-line); }
+.wb-tbl td { padding: 6px 4px; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+.wb-tbl .wb-r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wb-tbl .wb-sub { color: var(--color-fg-muted); }
+.wb-tbl tr.wb-hitrow td { background: color-mix(in srgb, var(--cds-chart-reference) 14%, transparent); }
+.wb-bad { color: var(--color-bad); }
+.wb-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 6px; }
+.wb-list .wb-chip { padding: 6px 8px; }
+.wb-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+.wb-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.wb-st-ok { background: var(--color-ok); }
+.wb-st-go { background: var(--color-warn); }
+.wb-st-plan { background: var(--cds-chart-reference); }
+.wb-st-none { background: transparent; border: 1px solid var(--color-fg-muted); box-sizing: border-box; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.wb-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 6rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.wb-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+</style>
+
+<div class="wb" id="top">
+  <header class="wb-head">
+    <h1 class="wb-title">Поставки WB — INHOMEKA и Гротек</h1>
+    <p class="wb-lead" data-draw="lead" data-source="supplies items">—</p>
+  </header>
+
+  <div class="wb-bar">
+    <div class="wb-seg" role="group" aria-label="Кабинет">
+      <button class="wb-cab" data-cab="all" aria-pressed="true">Все кабинеты</button>
+      <button class="wb-cab" data-cab="inhomeka" aria-pressed="false"><span class="wb-sw" data-sw="inhomeka"></span>INHOMEKA</button>
+      <button class="wb-cab" data-cab="grotek" aria-pressed="false"><span class="wb-sw" data-sw="grotek"></span>Гротек</button>
+    </div>
+    <div class="wb-month">
+      <button class="wb-nav" data-step="-1" aria-label="Предыдущий месяц">‹</button>
+      <span class="wb-mlabel" data-draw="month">—</span>
+      <button class="wb-nav" data-step="1" aria-label="Следующий месяц">›</button>
+      <button class="wb-today">Сегодня</button>
+    </div>
+    <input class="wb-q" type="search" placeholder="Найти артикул, баркод или товар" aria-label="Найти товар в поставках">
+  </div>
+
+  <div class="wb-kpis" id="kpis">
+    <div class="wb-kpi"><span>Поставок за месяц</span><b class="wb-num" data-draw="kpi-n" data-source="kpi" data-field="supplies">—</b></div>
+    <div class="wb-kpi"><span>Штук в поставках</span><b class="wb-num" data-draw="kpi-units" data-source="kpi" data-field="units">—</b></div>
+    <div class="wb-kpi"><span>Принято складами, шт</span><b class="wb-num" data-draw="kpi-acc" data-source="kpi" data-field="accepted">—</b></div>
+    <div class="wb-kpi"><span>Поставок с расхождениями</span><b class="wb-num" data-draw="kpi-discr" data-source="kpi" data-field="with_discrepancies">—</b></div>
+  </div>
+
+  <div class="wb-grid">
+    <section class="wb-card" id="calendar">
+      <h2>Календарь поставок</h2>
+      <p class="wb-note">Запланированные поставки с 1 октября 2026, по плановой дате. Цвет — кабинет, точка — статус. Нажмите на поставку, чтобы увидеть её состав.</p>
+      <div data-draw="cal" data-source="supplies items">—</div>
+    </section>
+    <aside class="wb-card wb-details" id="details">
+      <div data-draw="detail" data-source="supplies items">—</div>
+    </aside>
+  </div>
+
+
+  <p class="wb-legend">
+    <span><i class="wb-dot wb-st-plan"></i>Запланирована / отгрузка разрешена</span>
+    <span><i class="wb-dot wb-st-go"></i>Идёт приёмка / на воротах</span>
+    <span><i class="wb-dot wb-st-ok"></i>Принята</span>
+  </p>
+</div>
+
+<script>
+const CAB = { inhomeka: { name: 'INHOMEKA', color: dash.colors[0] }, grotek: { name: 'Гротек', color: dash.colors[2] } };
+const MON = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+const MON_G = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const MON_S = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const MAX_IN_DAY = 4;
+
+const todayStr = () => new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+const curMonth = () => todayStr().slice(0, 7);
+const num = (v) => (v === null || v === undefined || v === '' || isNaN(Number(v)) ? null : Number(v));
+const fmt = (v) => (num(v) === null ? '—' : Math.round(num(v)).toLocaleString('ru-RU'));
+const dShort = (s) => (s ? Number(s.slice(8, 10)) + ' ' + MON_S[Number(s.slice(5, 7)) - 1] : '—');
+const dLong = (s) => (s ? Number(s.slice(8, 10)) + ' ' + MON_G[Number(s.slice(5, 7)) - 1] : '—');
+const stCls = (id) => ({ 1: 'wb-st-none', 2: 'wb-st-plan', 3: 'wb-st-plan', 4: 'wb-st-go', 5: 'wb-st-ok', 6: 'wb-st-go' }[Number(id)] || 'wb-st-none');
+const P = () => dash.params();
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const fail = (el) => { el.replaceChildren(mk('div', 'wb-fail', 'Failed to load')); };
+const notOk = (el, ...ids) => {
+  const sts = ids.map((id) => dash.data(id).status);
+  if (sts.every((s) => s === 'ok')) return false;
+  if (sts.includes('error')) fail(el); else el.textContent = '—';
+  return true;
+};
+const bySupplies = () => {
+  const cab = P().cab || 'all';
+  return dash.data('supplies').data.filter((s) => cab === 'all' || s.cab === cab);
+};
+const searchHits = () => {
+  const q = (P().q || '').trim().toLowerCase();
+  if (!q) return null;
+  const it = dash.data('items');
+  const hits = new Set();
+  if (it.status === 'ok') for (const r of it.data) {
+    if ((r.article + ' ' + r.barcode + ' ' + r.title + ' ' + r.nm_id).toLowerCase().includes(q)) hits.add(r.sid);
+  }
+  for (const s of dash.data('supplies').data) if (String(s.supply_id).includes(q)) hits.add(s.sid);
+  return hits;
+};
+
+const chip = (s, opts = {}) => {
+  const b = mk('button', 'wb-chip');
+  const c = CAB[s.cab] || { name: s.cab, color: 'var(--color-fg-muted)' };
+  b.style.setProperty('--c', c.color);
+  b.dataset.sid = s.sid;
+  b.setAttribute('aria-label', c.name + ', поставка ' + s.supply_id + ', ' + s.status + ', ' + fmt(s.units) + ' шт, ' + (s.warehouse || 'склад не указан'));
+  const l1 = mk('span', 'wb-l1');
+  l1.append(mk('i', 'wb-dot ' + stCls(s.status_id)), mk('b', '', fmt(s.units) + ' шт'));
+  if (opts.showCab) l1.append(mk('span', '', '· ' + c.name));
+  if (num(s.discrepancies) > 0) l1.append(mk('span', 'wb-bad', '!'));
+  const l2 = mk('span', 'wb-l2', (opts.prefix || '') + (s.warehouse || 'склад не указан'));
+  b.append(l1, l2);
+  if (P().sid === s.sid) b.classList.add('wb-sel');
+  if (opts.hits) b.classList.add(opts.hits.has(s.sid) ? 'wb-hit' : 'wb-dim');
+  return b;
+};
+
+dash.calc('kpi', {
+  inputs: ['supplies'],
+  title: 'Итоги месяца по кабинету',
+  description: 'Поставки по месяцу плановой даты: число, штуки, принято и сколько с расхождениями — по каждому кабинету и по обоим вместе.',
+  fn: (supplies) => {
+    const m = new Map();
+    for (const s of supplies) {
+      if (!s.date) continue;
+      const month = s.date.slice(0, 7);
+      for (const cab of ['all', 'inhomeka', 'grotek']) {
+        const key = month + '|' + cab;
+        if (!m.has(key)) m.set(key, { key, month, cab, supplies: 0, units: 0, accepted: 0, with_discrepancies: 0 });
+        if (cab !== 'all' && cab !== s.cab) continue;
+        const r = m.get(key);
+        r.supplies += 1;
+        r.units += Number(s.units) || 0;
+        r.accepted += Number(s.accepted) || 0;
+        if (Number(s.discrepancies) > 0) r.with_discrepancies += 1;
+      }
+    }
+    return [...m.values()];
+  },
+});
+
+const setDefaults = () => dash.setParams({ month: curMonth() });
+if (!P().month) setDefaults();
+
+const root = document.querySelector('.wb');
+root.addEventListener('click', (e) => {
+  const sidEl = e.target.closest('[data-sid]');
+  if (sidEl) { dash.setParams({ sid: sidEl.dataset.sid }); return; }
+  const dayEl = e.target.closest('[data-day]');
+  if (dayEl) { dash.setParams({ day: dayEl.dataset.day, sid: null }); return; }
+  if (e.target.closest('[data-close]')) { dash.setParams({ sid: null, day: e.target.closest('[data-close]').dataset.close === 'sid' ? P().day : null }); return; }
+});
+for (const b of root.querySelectorAll('.wb-cab')) b.addEventListener('click', () => dash.setParams({ cab: b.dataset.cab, sid: null, day: null }));
+for (const b of root.querySelectorAll('.wb-nav')) b.addEventListener('click', () => {
+  const [y, m] = (P().month || curMonth()).split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + Number(b.dataset.step), 1));
+  dash.setParams({ month: d.toISOString().slice(0, 7), day: null });
+});
+for (const b of root.querySelectorAll('.wb-today')) b.addEventListener('click', () => dash.setParams({ month: curMonth(), day: null }));
+for (const q of root.querySelectorAll('.wb-q')) {
+  q.addEventListener('input', () => dash.setParams({ q: q.value.trim() || null }));
+  q.addEventListener('blur', () => { q.value = P().q || ''; });
+}
+
+dash.onData(() => {
+  const cab = P().cab || 'all';
+  for (const b of root.querySelectorAll('.wb-cab')) b.setAttribute('aria-pressed', String(b.dataset.cab === cab));
+  for (const s of root.querySelectorAll('[data-sw]')) s.style.background = (CAB[s.dataset.sw] || {}).color || '';
+  for (const q of root.querySelectorAll('.wb-q')) if (q !== document.activeElement) q.value = P().q || '';
+});
+
+dash.draw('month', (el) => {
+  const [y, m] = (P().month || curMonth()).split('-').map(Number);
+  el.textContent = MON[m - 1].charAt(0).toUpperCase() + MON[m - 1].slice(1) + ' ' + y;
+});
+
+const kpiDraw = (field) => (el) => {
+  const k = dash.data('kpi');
+  if (k.status !== 'ok') { el.textContent = '—'; return; }
+  const key = (P().month || curMonth()) + '|' + (P().cab || 'all');
+  const r = k.data.find((x) => x.key === key);
+  if (!r) { el.removeAttribute('data-where'); el.textContent = '—'; return; }
+  el.setAttribute('data-where', 'key=' + encodeURIComponent(key));
+  el.textContent = fmt(r[field]);
+  el.classList.toggle('wb-bad', field === 'with_discrepancies' && r[field] > 0);
+};
+dash.draw('kpi-n', kpiDraw('supplies'));
+dash.draw('kpi-units', kpiDraw('units'));
+dash.draw('kpi-acc', kpiDraw('accepted'));
+dash.draw('kpi-discr', kpiDraw('with_discrepancies'));
+
+dash.draw('lead', (el) => {
+  if (notOk(el, 'supplies')) return;
+  const today = todayStr();
+  const rows = bySupplies();
+  const hits = searchHits();
+  el.replaceChildren();
+  if (hits) {
+    const found = rows.filter((s) => hits.has(s.sid));
+    el.append('По запросу «' + P().q + '» найдено поставок: ', mk('b', '', fmt(found.length)), found.length ? ' — они подсвечены в календаре.' : '. Попробуйте другой артикул.');
+    return;
+  }
+  const ahead = rows.filter((s) => s.date && s.date >= today && Number(s.status_id) !== 5).sort((a, b) => a.date.localeCompare(b.date));
+  const inWork = rows.filter((s) => [4, 6].includes(Number(s.status_id)));
+  if (ahead.length) {
+    const n = ahead[0];
+    const sameDay = ahead.filter((s) => s.date === n.date);
+    el.append('Ближайшая отгрузка — ', mk('b', '', dLong(n.date)), sameDay.length > 1 ? ': ' + sameDay.length + ' поставки, ' + fmt(sameDay.reduce((a, s) => a + (Number(s.units) || 0), 0)) + ' шт. ' : ': ' + (CAB[n.cab] || {}).name + ' → ' + (n.warehouse || 'склад не указан') + ', ' + fmt(n.units) + ' шт. ');
+    el.append('Впереди ', mk('b', '', fmt(ahead.length)), ' поставок на ', mk('b', '', fmt(ahead.reduce((a, s) => a + (Number(s.units) || 0), 0)) + ' шт'), inWork.length ? ', на приёмке сейчас — ' + inWork.length + '.' : '.');
+  } else {
+    el.append('Запланированных поставок впереди нет.');
+  }
+  const at = rows.length ? rows[0].loaded_at : '';
+  if (at) el.append(' Данные из WB на ' + dShort(at.slice(0, 10)) + ', ' + at.slice(11, 16) + '.');
+});
+
+dash.draw('cal', (el) => {
+  if (notOk(el, 'supplies')) return;
+  const [y, m] = (P().month || curMonth()).split('-').map(Number);
+  const month = (P().month || curMonth());
+  const today = todayStr();
+  const hits = searchHits();
+  const rows = bySupplies().filter((s) => s.date && s.date.slice(0, 7) === month);
+  const byDay = d3.group(rows, (s) => s.date);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+  const dayStr = (d) => month + '-' + String(d).padStart(2, '0');
+  el.replaceChildren();
+
+  if (el.clientWidth < 620) {
+    const ag = mk('div', 'wb-ag');
+    for (let d = 1; d <= days; d++) {
+      const list = byDay.get(dayStr(d));
+      if (!list) continue;
+      const box = mk('div', 'wb-ag-day');
+      const h = mk('div', 'wb-ag-h' + (dayStr(d) === today ? ' wb-now' : ''), d + ' ' + MON_G[m - 1] + ', ' + WD[(lead + d - 1) % 7].toLowerCase() + ' · ' + list.length + ' пост.');
+      const lst = mk('div', 'wb-list');
+      for (const s of list) lst.append(chip(s, { showCab: true, hits }));
+      box.append(h, lst);
+      ag.append(box);
+    }
+    if (!ag.children.length) ag.append(mk('div', 'wb-empty', 'В этом месяце поставок нет.'));
+    el.append(ag);
+    return;
+  }
+
+  const grid = mk('div', 'wb-cal');
+  WD.forEach((w) => grid.append(mk('div', 'wb-dh', w)));
+  const prevDays = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
+  for (let i = 0; i < lead; i++) { const c = mk('div', 'wb-day wb-off'); c.append(mk('div', 'wb-dn', String(prevDays - lead + i + 1))); grid.append(c); }
+  for (let d = 1; d <= days; d++) {
+    const ds = dayStr(d);
+    const list = byDay.get(ds) || [];
+    const cell = mk('div', 'wb-day' + (ds === today ? ' wb-now' : '') + (P().day === ds ? ' wb-picked' : ''));
+    const dn = mk('div', 'wb-dn');
+    dn.append(mk('span', '', String(d)));
+    if (list.length) dn.append(mk('i', '', fmt(list.reduce((a, s) => a + (Number(s.units) || 0), 0)) + ' шт'));
+    cell.append(dn);
+    const ordered = hits ? [...list].sort((a, b) => hits.has(b.sid) - hits.has(a.sid)) : list;
+    ordered.slice(0, MAX_IN_DAY).forEach((s) => cell.append(chip(s, { hits })));
+    if (list.length > MAX_IN_DAY) {
+      const more = mk('button', 'wb-more', 'ещё ' + (list.length - MAX_IN_DAY) + ' →');
+      more.dataset.day = ds;
+      cell.append(more);
+    } else if (list.length > 1) {
+      const all = mk('button', 'wb-more', 'весь день →');
+      all.dataset.day = ds;
+      cell.append(all);
+    }
+    grid.append(cell);
+  }
+  const tail = (7 - ((lead + days) % 7)) % 7;
+  for (let i = 1; i <= tail; i++) { const c = mk('div', 'wb-day wb-off'); c.append(mk('div', 'wb-dn', String(i))); grid.append(c); }
+  el.append(grid);
+});
+
+dash.draw('detail', (el) => {
+  if (notOk(el, 'supplies')) return;
+  const all = dash.data('supplies').data;
+  const sid = P().sid;
+  const day = P().day;
+  const hits = searchHits();
+  el.replaceChildren();
+
+  const s = sid ? all.find((x) => x.sid === sid) : null;
+  if (!s) {
+    const today = todayStr();
+    const rows = bySupplies();
+    const list = day ? rows.filter((x) => x.date === day) : rows.filter((x) => x.date && x.date >= today && Number(x.status_id) !== 5).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 12);
+    const head = mk('div', 'wb-dh2');
+    head.append(mk('h2', '', day ? 'Поставки на ' + dLong(day) : 'Ближайшие поставки'));
+    if (day) { const x = mk('button', 'wb-x', 'Закрыть'); x.dataset.close = 'day'; head.append(x); }
+    el.append(head, mk('p', 'wb-note', day ? 'Всего ' + list.length + ' на ' + fmt(list.reduce((a, r) => a + (Number(r.units) || 0), 0)) + ' шт. Выберите поставку, чтобы увидеть состав.' : 'Выберите поставку в календаре или ниже, чтобы увидеть её состав.'));
+    const lst = mk('div', 'wb-list');
+    for (const r of list) lst.append(chip(r, { showCab: true, hits, prefix: day ? '' : dShort(r.date) + ' · ' }));
+    if (!list.length) lst.append(mk('div', 'wb-empty', 'Запланированных поставок нет.'));
+    el.append(lst);
+    return;
+  }
+
+  const c = CAB[s.cab] || { name: s.cab, color: 'var(--color-fg-muted)' };
+  const head = mk('div', 'wb-dh2');
+  head.append(mk('h2', '', 'Поставка ' + s.supply_id));
+  const x = mk('button', 'wb-x', day ? '← к дню' : 'Закрыть');
+  x.dataset.close = 'sid';
+  head.append(x);
+  const badges = mk('div', 'wb-badges');
+  const cb = mk('span', 'wb-badge'); const sw = mk('i', 'wb-sw'); sw.style.background = c.color; cb.append(sw, c.name);
+  const sb = mk('span', 'wb-badge'); sb.append(mk('i', 'wb-dot ' + stCls(s.status_id)), s.status);
+  badges.append(cb, sb);
+  if (s.box_type) badges.append(mk('span', 'wb-badge', s.box_type));
+  if (num(s.discrepancies) > 0) badges.append(mk('span', 'wb-badge wb-bad', 'Расхождения: ' + fmt(s.discrepancies)));
+
+  const meta = mk('dl', 'wb-meta');
+  const row = (k, v) => { if (v) meta.append(mk('dt', '', k), mk('dd', '', v)); };
+  row('Плановая дата', s.date ? dLong(s.date) : 'не запланирована');
+  row('Склад', s.warehouse || '—');
+  if (s.warehouse_actual && s.warehouse_actual !== s.warehouse) row('Фактический склад', s.warehouse_actual);
+  row('Создана', dLong(s.created));
+  if (s.fact_date) row('Приёмка', dLong(s.fact_date));
+  if (num(s.coef) !== null && Number(s.status_id) !== 1) row('Коэф. приёмки', String(s.coef));
+  if (num(s.acceptance_cost) !== null) row('Стоимость приёмки', fmt(s.acceptance_cost) + ' ₽');
+
+  const tot = mk('div', 'wb-tot');
+  const t = (k, v) => { const d = mk('div'); d.append(mk('span', '', k), mk('b', '', v)); tot.append(d); };
+  t('Артикулов', fmt(s.skus));
+  t('Штук', fmt(s.units));
+  t('Принято', num(s.accepted) === null || ![4, 5, 6].includes(Number(s.status_id)) ? '—' : fmt(s.accepted));
+
+  el.append(head, badges, meta, tot);
+
+  const it = dash.data('items');
+  if (it.status !== 'ok') { const w = mk('div'); if (it.status === 'error') fail(w); else w.textContent = '—'; el.append(w); return; }
+  const lines = it.data.filter((r) => r.sid === s.sid).sort((a, b) => (Number(b.qty) || 0) - (Number(a.qty) || 0));
+  if (!lines.length) { el.append(mk('div', 'wb-empty', s.items_loaded ? 'WB не отдал состав этой поставки.' : 'Состав пока не загружен — появится после следующего обновления.')); return; }
+  const q = (P().q || '').trim().toLowerCase();
+  const wrap = mk('div', 'wb-tbl-wrap');
+  const tbl = mk('table', 'wb-tbl');
+  tbl.setAttribute('data-source', 'items');
+  tbl.setAttribute('data-row-key', 'key');
+  const thead = mk('thead'); const hr = mk('tr');
+  [['article', 'Артикул / товар', ''], ['qty', 'План', 'wb-r'], ['accepted', 'Принято', 'wb-r']].forEach(([f, label, cls]) => { const th = mk('th', cls, label); th.setAttribute('data-field', f); hr.append(th); });
+  thead.append(hr);
+  const tb = mk('tbody');
+  for (const r of lines) {
+    const tr = mk('tr');
+    tr.dataset.key = r.key;
+    if (q && (r.article + ' ' + r.barcode + ' ' + r.title + ' ' + r.nm_id).toLowerCase().includes(q)) tr.className = 'wb-hitrow';
+    const a = mk('td');
+    a.append(mk('div', '', r.article || r.barcode));
+    const sub = [r.title, r.color, r.size ? 'р. ' + r.size : ''].filter(Boolean).join(' · ');
+    if (sub) a.append(mk('div', 'wb-sub', sub));
+    const acc = num(r.accepted);
+    const started = [4, 5, 6].includes(Number(s.status_id));
+    const accTd = mk('td', 'wb-r' + (Number(s.status_id) === 5 && acc !== null && acc !== Number(r.qty) ? ' wb-bad' : ''), acc === null || !started ? '—' : fmt(acc));
+    tr.append(a, mk('td', 'wb-r', fmt(r.qty)), accTd);
+    tb.append(tr);
+  }
+  tbl.append(thead, tb);
+  wrap.append(tbl);
+  el.append(wrap);
+});
+
+
+</script>
