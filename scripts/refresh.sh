@@ -8,6 +8,8 @@ umask 077
 printf 'INHOMEKA_WB_TOKEN=%s\nGROTEK_WB_TOKEN=%s\n' "$INHOMEKA_WB_TOKEN" "$GROTEK_WB_TOKEN" > "$W/.env"
 python3 -u scripts/fetch_supplies.py --env "$W/.env" --out "$W/data.json" --date-from 2026-10-01 \
   --prev-supplies data/supplies.json --prev-items data/items.json
+# WB у части поставок отдаёт пустой vendorCode — дозаполняем по справочнику nmID -> артикул
+python3 -u scripts/fill_articles.py "$W/data.json" data/articles.json "$W/.env" || echo "Артикулы не дозаполнены"
 rm -f "$W/.env"
 ( cd "$W" && python3 "$OLDPWD/scripts/build_datasets.py" data.json )
 cp "$W/supplies.json" "$W/items.json" data/
